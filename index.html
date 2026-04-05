@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>簡報生成助手 | AI-Ready Slide Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #e67e22;
+            --bg: #f4f7f9;
+            --white: #ffffff;
+            --text: #2c3e50;
+            --gray: #95a5a6;
+        }
+
+        body { 
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; 
+            background: var(--bg); 
+            color: var(--text);
+            padding: 40px 20px; 
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .container { 
+            max-width: 900px; 
+            margin: auto; 
+            background: var(--white); 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05); 
+        }
+
+        h1 { 
+            text-align: center; 
+            color: var(--primary); 
+            font-size: 2.2em; 
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+        }
+
+        h1 span { color: var(--accent); }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            color: var(--primary);
+        }
+
+        .section-title::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 18px;
+            background: var(--accent);
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .card { 
+            background: #fafafa; 
+            padding: 25px; 
+            border-radius: 12px; 
+            margin-bottom: 25px; 
+            border: 1px solid #edf2f7; 
+            transition: 0.3s;
+        }
+
+        .card:hover { border-color: var(--accent); box-shadow: 0 5px 15px rgba(0,0,0,0.03); }
+
+        label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9em; color: #555; }
+
+        input[type="text"], textarea { 
+            width: 100%; 
+            padding: 14px; 
+            margin-bottom: 20px; 
+            border: 2px solid #eee; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 1em;
+            transition: 0.3s;
+            outline: none;
+        }
+
+        input[type="text"]:focus, textarea:focus { border-color: var(--primary); background: #fff; }
+
+        input[type="file"] { margin-bottom: 10px; font-size: 0.9em; }
+
+        button { 
+            padding: 14px 28px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 1em;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-add { background: #fff; border: 2px solid var(--primary); color: var(--primary); width: 100%; }
+        .btn-add:hover { background: var(--primary); color: #fff; }
+
+        .btn-process { background: var(--primary); color: white; width: 100%; margin-top: 30px; }
+        .btn-process:hover { background: #1a252f; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+
+        .btn-export { background: var(--accent); color: white; width: 100%; margin-top: 25px; font-size: 1.2em; }
+        .btn-export:hover { background: #d35400; transform: translateY(-2px); }
+
+        #previewContainer { display: none; margin-top: 50px; border-top: 2px solid #eee; padding-top: 30px; }
+        
+        .preview-item { 
+            background: #fff; 
+            border: 1px solid #ddd; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            border-radius: 12px; 
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+
+        .preview-item span { font-size: 0.85em; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: block; }
+        .preview-item textarea { height: 130px; background: #fffcf9; border: 1px solid #f3e5d8; margin-bottom: 0; }
+        .ref-box { background: #eef2f7; padding: 20px; border-radius: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🚀 簡報<span>生成助手</span></h1>
+
+    <div class="section-title">基本資訊</div>
+    <div class="card">
+        <label>🎯 報告標題</label>
+        <input type="text" id="reportTitle" placeholder="請輸入投影片封面的大標題">
+        <label>👥 製作單位/姓名</label>
+        <input type="text" id="authorName" placeholder="例如：開發小組 A-Team">
+    </div>
+
+    <div class="section-title">內容來源 (Word 檔案)</div>
+    <div id="chaptersContainer">
+        <div class="card">
+            <label>📖 章節 1 名稱</label>
+            <input type="text" class="chap-name" placeholder="例如：專案背景與目的">
+            <input type="file" class="chap-file" accept=".docx">
+        </div>
+    </div>
+
+    <button class="btn-add" onclick="addChapter()">＋ 新增更多章節</button>
+    
+    <button class="btn-process" onclick="processAllData()">⚡ 整理檔案並生成預覽</button>
+
+    <div id="previewContainer">
+        <div class="section-title">內容預覽與微調</div>
+        <div id="previewList"></div>
+        
+        <div class="section-title">偵測到的參考資料網址</div>
+        <div class="ref-box">
+            <textarea id="referenceList" style="margin-bottom:0; height:80px;"></textarea>
+        </div>
+
+        <button class="btn-export" onclick="exportToPPT()">💾 確認無誤，匯出 PPT 簡報</button>
+    </div>
+</div>
+
+<script>
+    let urlPool = new Set();
+
+    function addChapter() {
+        const container = document.getElementById('chaptersContainer');
+        const index = container.children.length + 1;
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+            <label>📖 章節 ${index} 名稱</label>
+            <input type="text" class="chap-name" placeholder="內容主題">
+            <input type="file" class="chap-file" accept=".docx">`;
+        container.appendChild(div);
+    }
+
+    async function processAllData() {
+        const chapNames = document.querySelectorAll('.chap-name');
+        const chapFiles = document.querySelectorAll('.chap-file');
+        const previewList = document.getElementById('previewList');
+        
+        previewList.innerHTML = "<p style='text-align:center; color:#95a5a6;'>正在解析檔案中，請稍候...</p>";
+        document.getElementById('previewContainer').style.display = "block";
+        urlPool.clear();
+
+        let allSlidesHTML = "";
+
+        for (let i = 0; i < chapFiles.length; i++) {
+            const file = chapFiles[i].files[0];
+            const sectionName = chapNames[i].value || `章節 ${i+1}`;
+
+            if (file) {
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                const fullText = result.value;
+
+                const foundUrls = fullText.match(/(https?:\/\/[^\s]+)/g);
+                if (foundUrls) foundUrls.forEach(u => urlPool.add(u));
+
+                const lines = fullText.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+                const groupSize = 4;
+                
+                for (let j = 0; j < lines.length; j += groupSize) {
+                    const chunk = lines.slice(j, j + groupSize).join('\n\n');
+                    allSlidesHTML += `
+                        <div class="preview-item">
+                            <span>SLIDE PAGE</span>
+                            <input type="text" class="pv-title" value="${sectionName}">
+                            <textarea class="pv-content">${chunk}</textarea>
+                        </div>`;
+                }
+            }
+        }
+        previewList.innerHTML = allSlidesHTML || "<p style='color:red;'>請選擇檔案！</p>";
+        document.getElementById('referenceList').value = Array.from(urlPool).join('\n');
+    }
+
+    function exportToPPT() {
+        const pptx = new PptxGenJS();
+        const title = document.getElementById('reportTitle').value || "未命名報告";
+        const author = document.getElementById('authorName').value || "工作小組";
+        
+        const THEME_COLOR = "2C3E50";
+        const ACCENT_COLOR = "E67E22";
+        const BG_COLOR = "F8F9FA";
+
+        // 1. 封面
+        let slide0 = pptx.addSlide();
+        slide0.background = { fill: THEME_COLOR };
+        slide0.addText(title, { x: 1, y: 1.8, w: 8, h: 1.5, fontSize: 44, bold: true, color: "FFFFFF", align: "center", fontFace: "Microsoft JhengHei" });
+        slide0.addShape(pptx.ShapeType.rect, { x: 4, y: 3.4, w: 2, h: 0.05, fill: { color: ACCENT_COLOR } });
+        slide0.addText(author, { x: 1, y: 3.8, w: 8, h: 0.5, fontSize: 20, color: "BDC3C7", align: "center", fontFace: "Microsoft JhengHei" });
+
+        // --- 重點更新：2. 目錄頁 (Agenda) ---
+        const pvTitles = document.querySelectorAll('.pv-title');
+        // 蒐集不重複的章節名稱
+        let chapterList = [];
+        pvTitles.forEach(t => {
+            if (!chapterList.includes(t.value)) chapterList.push(t.value);
+        });
+
+        if (chapterList.length > 0) {
+            let slideAgenda = pptx.addSlide();
+            slideAgenda.background = { fill: BG_COLOR };
+            slideAgenda.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.3, h: "100%", fill: { color: THEME_COLOR } });
+            slideAgenda.addText("報告目錄 (Agenda)", { x: 0.6, y: 0.5, w: 8, h: 0.7, fontSize: 32, bold: true, color: THEME_COLOR, fontFace: "Microsoft JhengHei" });
+            slideAgenda.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.2, w: 1.5, h: 0.06, fill: { color: ACCENT_COLOR } });
+
+            // 將章節清單組合成文字，並加上編號
+            const agendaContent = chapterList.map((name, idx) => `${idx + 1}. ${name}`).join('\n');
+            slideAgenda.addText(agendaContent, { 
+                x: 0.8, y: 1.8, w: 8.5, h: 4, fontSize: 20, 
+                color: "333333", fontFace: "Microsoft JhengHei", 
+                valign: "top", lineSpacing: 35 
+            });
+        }
+
+        // 3. 內容頁
+        const pvContents = document.querySelectorAll('.pv-content');
+        pvTitles.forEach((t, idx) => {
+            let slide = pptx.addSlide();
+            slide.background = { fill: BG_COLOR };
+            slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.3, h: "100%", fill: { color: THEME_COLOR } });
+            slide.addText(t.value, { x: 0.6, y: 0.5, w: 8, h: 0.7, fontSize: 32, bold: true, color: THEME_COLOR, fontFace: "Microsoft JhengHei" });
+            slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.2, w: 1.5, h: 0.06, fill: { color: ACCENT_COLOR } });
+            slide.addText(pvContents[idx].value, { x: 0.8, y: 1.8, w: 8.5, h: 4, fontSize: 18, color: "333333", fontFace: "Microsoft JhengHei", bullet: { type: 'bullet', code: '25AA' }, valign: "top", lineSpacing: 28 });
+            slide.addText(`${idx + 1}`, { x: 9, y: 5.2, w: 1, h: 0.5, fontSize: 12, color: "BDC3C7", align: "center" });
+        });
+
+        // 4. 參考資料
+        const finalRefs = document.getElementById('referenceList').value;
+        if (finalRefs.trim()) {
+            let slideRef = pptx.addSlide();
+            slideRef.background = { fill: THEME_COLOR };
+            slideRef.addText("資料來源 (References)", { x: 0.6, y: 0.6, w: 5, h: 0.8, fontSize: 28, bold: true, color: "FFFFFF" });
+            slideRef.addText(finalRefs, { x: 0.8, y: 1.6, w: 8.5, h: 3.5, fontSize: 14, color: "BDC3C7", fontFace: "Consolas", valign: "top" });
+        }
+
+        pptx.writeFile({ fileName: `${title}.pptx` });
+    }
+</script>
+
+</body>
+</html>
