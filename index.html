@@ -89,7 +89,23 @@
 
         input[type="text"]:focus, textarea:focus { border-color: var(--primary); background: #fff; }
 
-        input[type="file"] { margin-bottom: 10px; font-size: 0.9em; }
+        /* 切換開關樣式 */
+        .option-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .option-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
 
         button { 
             padding: 14px 28px; 
@@ -114,20 +130,16 @@
         .btn-export:hover { background: #d35400; transform: translateY(-2px); }
 
         #previewContainer { display: none; margin-top: 50px; border-top: 2px solid #eee; padding-top: 30px; }
-        
         .preview-item { 
             background: #fff; 
             border: 1px solid #ddd; 
             padding: 20px; 
             margin-bottom: 20px; 
             border-radius: 12px; 
-            position: relative;
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
-
-        .preview-item span { font-size: 0.85em; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: block; }
+        .preview-item span { font-size: 0.85em; color: var(--accent); display: block; margin-bottom: 10px; }
         .preview-item textarea { height: 130px; background: #fffcf9; border: 1px solid #f3e5d8; margin-bottom: 0; }
-        .ref-box { background: #eef2f7; padding: 20px; border-radius: 12px; }
     </style>
 </head>
 <body>
@@ -141,6 +153,11 @@
         <input type="text" id="reportTitle" placeholder="請輸入投影片封面的大標題">
         <label>👥 製作單位/姓名</label>
         <input type="text" id="authorName" placeholder="例如：開發小組 A-Team">
+        
+        <div class="option-group">
+            <input type="checkbox" id="useLayout" checked>
+            <label for="useLayout" style="margin:0; cursor:pointer;">🎨 套用質感版面配置 (裝飾條、底線、色彩計畫)</label>
+        </div>
     </div>
 
     <div class="section-title">內容來源 (Word 檔案)</div>
@@ -153,7 +170,6 @@
     </div>
 
     <button class="btn-add" onclick="addChapter()">＋ 新增更多章節</button>
-    
     <button class="btn-process" onclick="processAllData()">⚡ 整理檔案並生成預覽</button>
 
     <div id="previewContainer">
@@ -161,9 +177,7 @@
         <div id="previewList"></div>
         
         <div class="section-title">偵測到的參考資料網址</div>
-        <div class="ref-box">
-            <textarea id="referenceList" style="margin-bottom:0; height:80px;"></textarea>
-        </div>
+        <textarea id="referenceList" style="height:80px;"></textarea>
 
         <button class="btn-export" onclick="exportToPPT()">💾 確認無誤，匯出 PPT 簡報</button>
     </div>
@@ -198,18 +212,15 @@
         for (let i = 0; i < chapFiles.length; i++) {
             const file = chapFiles[i].files[0];
             const sectionName = chapNames[i].value || `章節 ${i+1}`;
-
             if (file) {
                 const arrayBuffer = await file.arrayBuffer();
                 const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
                 const fullText = result.value;
-
                 const foundUrls = fullText.match(/(https?:\/\/[^\s]+)/g);
                 if (foundUrls) foundUrls.forEach(u => urlPool.add(u));
 
                 const lines = fullText.split('\n').map(p => p.trim()).filter(p => p.length > 0);
                 const groupSize = 4;
-                
                 for (let j = 0; j < lines.length; j += groupSize) {
                     const chunk = lines.slice(j, j + groupSize).join('\n\n');
                     allSlidesHTML += `
@@ -229,40 +240,51 @@
         const pptx = new PptxGenJS();
         const title = document.getElementById('reportTitle').value || "未命名報告";
         const author = document.getElementById('authorName').value || "工作小組";
+        const isLayoutUsed = document.getElementById('useLayout').checked;
         
-        const THEME_COLOR = "2C3E50";
-        const ACCENT_COLOR = "E67E22";
-        const BG_COLOR = "F8F9FA";
+        // 色彩計畫
+        const THEME_COLOR = isLayoutUsed ? "2C3E50" : "000000";
+        const ACCENT_COLOR = isLayoutUsed ? "E67E22" : "000000";
+        const BG_COLOR = isLayoutUsed ? "F8F9FA" : "FFFFFF";
 
         // 1. 封面
         let slide0 = pptx.addSlide();
-        slide0.background = { fill: THEME_COLOR };
-        slide0.addText(title, { x: 1, y: 1.8, w: 8, h: 1.5, fontSize: 44, bold: true, color: "FFFFFF", align: "center", fontFace: "Microsoft JhengHei" });
-        slide0.addShape(pptx.ShapeType.rect, { x: 4, y: 3.4, w: 2, h: 0.05, fill: { color: ACCENT_COLOR } });
-        slide0.addText(author, { x: 1, y: 3.8, w: 8, h: 0.5, fontSize: 20, color: "BDC3C7", align: "center", fontFace: "Microsoft JhengHei" });
-
-        // --- 重點更新：2. 目錄頁 (Agenda) ---
-        const pvTitles = document.querySelectorAll('.pv-title');
-        // 蒐集不重複的章節名稱
-        let chapterList = [];
-        pvTitles.forEach(t => {
-            if (!chapterList.includes(t.value)) chapterList.push(t.value);
+        if (isLayoutUsed) slide0.background = { fill: THEME_COLOR };
+        
+        slide0.addText(title, { 
+            x: 1, y: 1.8, w: 8, h: 1.5, fontSize: 44, bold: true, 
+            color: isLayoutUsed ? "FFFFFF" : "000000", 
+            align: "center", fontFace: "Microsoft JhengHei" 
         });
+        
+        if (isLayoutUsed) {
+            slide0.addShape(pptx.ShapeType.rect, { x: 4, y: 3.4, w: 2, h: 0.05, fill: { color: ACCENT_COLOR } });
+        }
+        
+        slide0.addText(author, { 
+            x: 1, y: 3.8, w: 8, h: 0.5, fontSize: 20, 
+            color: isLayoutUsed ? "BDC3C7" : "666666", 
+            align: "center", fontFace: "Microsoft JhengHei" 
+        });
+
+        // 2. 目錄頁
+        const pvTitles = document.querySelectorAll('.pv-title');
+        let chapterList = [];
+        pvTitles.forEach(t => { if (!chapterList.includes(t.value)) chapterList.push(t.value); });
 
         if (chapterList.length > 0) {
             let slideAgenda = pptx.addSlide();
             slideAgenda.background = { fill: BG_COLOR };
-            slideAgenda.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.3, h: "100%", fill: { color: THEME_COLOR } });
-            slideAgenda.addText("報告目錄 (Agenda)", { x: 0.6, y: 0.5, w: 8, h: 0.7, fontSize: 32, bold: true, color: THEME_COLOR, fontFace: "Microsoft JhengHei" });
-            slideAgenda.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.2, w: 1.5, h: 0.06, fill: { color: ACCENT_COLOR } });
-
-            // 將章節清單組合成文字，並加上編號
-            const agendaContent = chapterList.map((name, idx) => `${idx + 1}. ${name}`).join('\n');
-            slideAgenda.addText(agendaContent, { 
-                x: 0.8, y: 1.8, w: 8.5, h: 4, fontSize: 20, 
-                color: "333333", fontFace: "Microsoft JhengHei", 
-                valign: "top", lineSpacing: 35 
+            if (isLayoutUsed) {
+                slideAgenda.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.3, h: "100%", fill: { color: THEME_COLOR } });
+                slideAgenda.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.2, w: 1.5, h: 0.06, fill: { color: ACCENT_COLOR } });
+            }
+            slideAgenda.addText("報告目錄 (Agenda)", { 
+                x: 0.6, y: 0.5, w: 8, h: 0.7, fontSize: 32, bold: true, 
+                color: THEME_COLOR, fontFace: "Microsoft JhengHei" 
             });
+            const agendaContent = chapterList.map((name, idx) => `${idx + 1}. ${name}`).join('\n');
+            slideAgenda.addText(agendaContent, { x: 0.8, y: 1.8, w: 8.5, h: 4, fontSize: 20, color: "333333", fontFace: "Microsoft JhengHei", valign: "top", lineSpacing: 35 });
         }
 
         // 3. 內容頁
@@ -270,9 +292,11 @@
         pvTitles.forEach((t, idx) => {
             let slide = pptx.addSlide();
             slide.background = { fill: BG_COLOR };
-            slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.3, h: "100%", fill: { color: THEME_COLOR } });
+            if (isLayoutUsed) {
+                slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.3, h: "100%", fill: { color: THEME_COLOR } });
+                slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.2, w: 1.5, h: 0.06, fill: { color: ACCENT_COLOR } });
+            }
             slide.addText(t.value, { x: 0.6, y: 0.5, w: 8, h: 0.7, fontSize: 32, bold: true, color: THEME_COLOR, fontFace: "Microsoft JhengHei" });
-            slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.2, w: 1.5, h: 0.06, fill: { color: ACCENT_COLOR } });
             slide.addText(pvContents[idx].value, { x: 0.8, y: 1.8, w: 8.5, h: 4, fontSize: 18, color: "333333", fontFace: "Microsoft JhengHei", bullet: { type: 'bullet', code: '25AA' }, valign: "top", lineSpacing: 28 });
             slide.addText(`${idx + 1}`, { x: 9, y: 5.2, w: 1, h: 0.5, fontSize: 12, color: "BDC3C7", align: "center" });
         });
@@ -281,9 +305,16 @@
         const finalRefs = document.getElementById('referenceList').value;
         if (finalRefs.trim()) {
             let slideRef = pptx.addSlide();
-            slideRef.background = { fill: THEME_COLOR };
-            slideRef.addText("資料來源 (References)", { x: 0.6, y: 0.6, w: 5, h: 0.8, fontSize: 28, bold: true, color: "FFFFFF" });
-            slideRef.addText(finalRefs, { x: 0.8, y: 1.6, w: 8.5, h: 3.5, fontSize: 14, color: "BDC3C7", fontFace: "Consolas", valign: "top" });
+            if (isLayoutUsed) slideRef.background = { fill: THEME_COLOR };
+            slideRef.addText("資料來源 (References)", { 
+                x: 0.6, y: 0.6, w: 5, h: 0.8, fontSize: 28, bold: true, 
+                color: isLayoutUsed ? "FFFFFF" : "000000" 
+            });
+            slideRef.addText(finalRefs, { 
+                x: 0.8, y: 1.6, w: 8.5, h: 3.5, fontSize: 14, 
+                color: isLayoutUsed ? "BDC3C7" : "333333", 
+                fontFace: "Consolas", valign: "top" 
+            });
         }
 
         pptx.writeFile({ fileName: `${title}.pptx` });
